@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Smart Door</string>
+    <string name="main_explanation">Please stay in front of the proximity sensor (within 50 cm) for at least 5 seconds</string>
+</resources>

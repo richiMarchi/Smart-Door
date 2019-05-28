@@ -1,0 +1,19 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+}
+#temp-gauge-section {
+    float: left;
+    margin-bottom: 5%;
+}
+#led-value-section {
+    float: right;
+    margin-right: 30%;
+    margin-top: 10%;
+}
+#led-value-section > p {
+    font-size: 2em;
+    text-align: center;
+}
+#logs-section {
+    clear: both;
+}

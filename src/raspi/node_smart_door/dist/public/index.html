@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Smart Door</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.css">
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <section id="temp-gauge-section">
+        <canvas id="temp-gauge"></canvas>
+    </section>
+    <section id="led-value-section">
+        <h1>Current LED L<sub>VALUE</sub> intensity:</h1>
+        <p><span id="led-value">0</span>%</p>
+    </section>
+    <section id="logs-section">
+        <h1>Today's access logs</h1>
+        <table id="logs_table" class="display" style="width: 100%">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Username</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+        </table>
+    </section>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="//cdn.rawgit.com/Mikhus/canvas-gauges/gh-pages/download/2.1.4/all/gauge.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js"></script>
+    <script>
+        $(function() {
+
+            function showAccessSuccessNotification(accessLog) {
+                const time = accessLog.date.split(" ")[1];
+                const msgTemplate = `<p><strong>User: </strong>${accessLog.username}</p>
+                                     <p><strong>Time: </strong>${time}</p>
+                                     <p style="text-align:justify">${accessLog.description}</p>`;
+                toastr.success(msgTemplate, "Access Success");
+            }
+
+            function showAccessFailedNotification(accessLog) {
+                const time = accessLog.date.split(" ")[1];
+                const msgTemplate = `<p><strong>User: </strong>${accessLog.username}</p>
+                                     <p><strong>Time: </strong>${time}</p>
+                                     <p style="text-align:justify">${accessLog.description}</p>`;
+                toastr.warning(msgTemplate, "Access Failed");
+            }
+
+            function showAccessFailedPirNotification(accessLog) {
+                const time = accessLog.date.split(" ")[1];
+                const msgTemplate = `<p><strong>User: </strong>${accessLog.username}</p>
+                                     <p><strong>Time: </strong>${time}</p>
+                                     <p>${accessLog.description}</p>`;
+                toastr.warning(msgTemplate, "Access Failed PIR");
+            }
+
+            function showConnectionErrorNotification() {
+                const msgTemplate = `<p>Unable to connect to server's socket.</p>
+                                     <p>Please check your internet connection,
+                                        try to reload the page or contact the system administrator.</p>`
+                toastr.error(msgTemplate, "Connection Error", {timeOut:0, extendedTimeOut:0, tapToDismiss:false});
+            }
+            var firstConn = true;
+            var connError = false;
+            var logsTable;
+            var socket = io();
+            var gauge = new LinearGauge({
+                    renderTo: "temp-gauge",
+                    width: 150,
+                    height: 400,
+                    units: "°C",
+                    title: "Temperature",
+                    valueInt: 2,
+                    minValue: 0,
+                    maxValue: 50,
+                    majorTicks: [
+                        0,
+                        10,
+                        20,
+                        30,
+                        40,
+                        50
+                    ],
+                    minorTicks: 10,
+                    strokeTicks: true,
+                    ticksWidth: 15,
+                    ticksWidthMinor: 7.5,
+                    highlights: [
+                        {
+                            "from": 0,
+                            "to": 50,
+                            "color": "rgba(255, 0, 0, .3)"
+                        }
+                    ],
+                    colorMajorTicks: "#ffe66a",
+                    colorMinorTicks: "#ffe66a",
+                    colorTitle: "#eee",
+                    colorUnits: "#ccc",
+                    colorNumbers: "#eee",
+                    colorPlate: "#2465c0",
+                    colorPlateEnd: "#327ac0",
+                    borderShadowWidth: 0,
+                    borders: false,
+                    borderRadius: 10,
+                    needleType: "arrow",
+                    needleWidth: 3,
+                    animationDuration: 1500,
+                    animationRule: "linear",
+                    colorNeedle: "#222",
+                    colorNeedleEnd: "",
+                    colorBarProgress: "#c03150",
+                    colorBar: "#f5f5f5",
+                    barStroke: 0,
+                    barWidth: 8,
+                    barBeginCircle: false
+                }).draw();
+
+                // toastr global options
+
+                toastr.options = {
+                    "closeButton": false,
+                    "debug": false,
+                    "newestOnTop": false,
+                    "progressBar": false,
+                    "positionClass": "toast-top-right",
+                    "preventDuplicates": false,
+                    "onclick": null,
+                    "showDuration": "300",
+                    "hideDuration": "1000",
+                    "timeOut": "5000",
+                    "extendedTimeOut": "8000",
+                    "showEasing": "swing",
+                    "hideEasing": "linear",
+                    "showMethod": "fadeIn",
+                    "hideMethod": "fadeOut"
+                }
+                
+                socket.on('tempUpdate', function (data) {
+                    console.log(data);
+                    gauge.value = data;
+                });
+                socket.on('lvalueUpdate', function(data) {
+                    $('#led-value').text(data);
+                })
+                socket.on('todayLogs', function(data) {
+                    console.log(data);
+                    if (firstConn) {
+                        logsTable = $('#logs_table').DataTable({
+                            data: data.logs,
+                            columns: [
+                                {data: 'date'},
+                                {data: 'username'},
+                                {data: 'description'}
+                            ],
+                            "order": [[0, "desc"]]
+                        });
+                        firstConn = false;
+                    } else {
+                        logsTable.clear();
+                        logsTable.rows.add(data.logs)
+                                      .draw(false);
+                    }
+                });
+                socket.on('newAccess', function(data) {
+                    logsTable.row.add({date:data.date, username: data.username, description:data.description})
+                                 .draw(false);
+                    switch (data.status) {
+                        case "success":
+                            showAccessSuccessNotification(data);
+                            break;
+                        case "fail":
+                            showAccessFailedNotification(data);
+                            break;
+                        case "fail_pir":
+                            showAccessFailedPirNotification(data);
+                            break;
+                    }
+                    // toastr.success("My name is Inigo Montoya. You killed my father. Prepare to die!", "My title");
+                });
+                socket.on('connect', function() {
+                    if (connError) {
+                        toastr.clear();
+                        connError = false;
+                    }
+                })
+                socket.on('disconnect', function (reason) {
+                    if (!connError) {
+                        showConnectionErrorNotification();
+                        connError = true;
+                    }
+                });
+                socket.on('connect_error', function (error) {
+                    if (!connError) {
+                        showConnectionErrorNotification();
+                        connError = true;
+                    }
+                });
+                socket.on('reconnect_error', function (error) {
+                    if (!connError) {
+                        showConnectionErrorNotification();
+                        connError = true;
+                    }
+                });
+        });
+    </script>
+</body>
+</html>
