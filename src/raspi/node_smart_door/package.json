@@ -19,7 +19,7 @@
     "find-up": "^2.1.0",
     "mysql2": "^1.5.3",
     "serialport": "^6.2.0",
-    "socket.io": "^2.1.0",
+    "socket.io": "^2.4.0",
     "yargs": "^11.0.0"
   },
   "devDependencies": {
